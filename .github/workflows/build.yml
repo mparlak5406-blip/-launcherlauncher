@@ -1,0 +1,51 @@
+name: APK derle
+
+on:
+  workflow_dispatch:
+  push:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+
+      - name: Projeyi bul ve derle
+        run: |
+          if [ -f project.zip ]; then
+            mkdir -p _proj
+            unzip -q -o project.zip -d _proj
+          fi
+          SETTINGS=$(find . -name settings.gradle -not -path './.git/*' | head -n 1)
+          if [ -z "$SETTINGS" ]; then
+            echo "settings.gradle bulunamadi. project.zip dosyasini repoya yukleyin."
+            exit 1
+          fi
+          cd "$(dirname "$SETTINGS")"
+          gradle assembleRelease --no-daemon --stacktrace
+          APK=$(find "$PWD" -name '*.apk' -path '*release*' | head -n 1)
+          mkdir -p "$GITHUB_WORKSPACE/out"
+          cp "$APK" "$GITHUB_WORKSPACE/out/iLauncher.apk"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: iLauncher-apk
+          path: out/iLauncher.apk
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: apk-${{ github.run_number }}
+          name: iLauncher APK ${{ github.run_number }}
+          files: out/iLauncher.apk
